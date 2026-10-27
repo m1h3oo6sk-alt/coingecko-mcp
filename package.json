@@ -1,0 +1,32 @@
+{
+  "name": "coingecko-mcp",
+  "version": "1.0.0",
+  "description": "CoinGecko market data and price feeds with a file-first store, SQLite cache, CLI, and MCP server",
+  "license": "MIT",
+  "main": "./mcp-server.js",
+  "bin": {
+    "coingecko-mcp": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "mcp-server.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "keywords": [
+    "coingecko",
+    "cryptocurrency",
+    "market-data",
+    "price-feed",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "scripts": {
+    "mcp-start": "node mcp-server.js",
+    "test": "node test/file-store-cache.js && node test/engine-synthesis.js && node test/mcp-smoke.js"
+  }
+}
