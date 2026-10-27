@@ -160,3 +160,9 @@ retry for permanent HTTP errors.
 Market data belongs to CoinGecko and is subject to its API terms and rate
 limits. This package provides data retrieval and storage, not financial
 advice or trading execution.
+
+## Links
+
+- GitHub: https://github.com/m1h3oo6sk-alt/coingecko-mcp
+- Issues: https://github.com/m1h3oo6sk-alt/coingecko-mcp/issues
+- npm: https://www.npmjs.com/package/coingecko-mcp
