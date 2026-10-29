@@ -66,6 +66,16 @@ logs, stored snapshots, or synthesized documents.
 - Fourteen MCP tools with JSON Schema validation and JSON-RPC 2.0 notifications
 - No API key in URLs, logs, stored snapshots, or synthesized documents
 
+## Docker
+
+A `Dockerfile` is included for containerized runs:
+
+    docker build -t coingecko-mcp .
+    docker run -i --rm coingecko-mcp
+
+The container runs the MCP stdio server, so point your MCP client's `command`
+at `docker` with the arguments above.
+
 ## Install and verify
 
     npm install coingecko-mcp
