@@ -4,14 +4,66 @@ CoinGecko market data and price feeds with a file-first store, a derived
 SQLite cache, a deterministic market synthesizer, a CLI, and an MCP stdio
 server. The CLI and MCP server share the same assets and snapshots.
 
+## Frequently asked questions
+
+### How do I get live crypto prices in Claude Desktop?
+
+Install `coingecko-mcp` and add it to your MCP client configuration:
+
+    {
+      "mcpServers": {
+        "coingecko": {
+          "command": "coingecko-mcp",
+          "args": ["mcp-start"]
+        }
+      }
+    }
+
+Works with Claude Desktop, Cursor, Windsurf and any MCP client. Ask your
+assistant "what is the price of bitcoin?" and the `coingecko_get_price` tool
+answers from the CoinGecko API — no API key required.
+
+### How to track Bitcoin and Ethereum prices with MCP?
+
+Use the `coingecko_get_price` tool for one-off quotes and `coingecko_refresh`
+to write timestamped snapshots into a local store. Add portfolio amounts with
+`coingecko_add_asset` and read valuation with `coingecko_portfolio`.
+
+### What is the best free crypto price API for AI agents?
+
+CoinGecko offers a free tier with no API key, which makes it a good default
+for agents and scripts. This package wraps it as an MCP server plus a CLI, so
+the same price data is available to an AI assistant and to shell automation.
+
+### How do I build a crypto portfolio tracker in Node.js?
+
+Run `coingecko-mcp init`, add assets with amounts, and call `portfolio`:
+
+    coingecko-mcp add asset bitcoin --amount 0.5
+    coingecko-mcp portfolio --currency usd
+
+The programmatic API exposes the same engine for embedding in your own tools.
+
+### Can I get price alerts for Bitcoin and Ethereum?
+
+Yes. Store or refresh prices and evaluate thresholds with `alert`:
+
+    coingecko-mcp alert --above 70000 --below 60000
+
+### Does coingecko-mcp need an API key?
+
+No. CoinGecko's public API is used directly. API keys never appear in URLs,
+logs, stored snapshots, or synthesized documents.
+
 ## Properties
 
 - Node.js 22.5 or newer; uses built-in `node:sqlite` and `fetch`
 - Zero runtime dependencies and zero install scripts
 - JSON and JSONL source files with a transactional SQLite index
 - Current prices, market cap, volume, 24-hour change, and timestamp
+- Portfolio valuation, market charts, price alerts, and CSV/JSONL import/export
 - TTL price caching, refresh-on-demand, and bounded deterministic synthesis
-- Eight MCP tools with JSON Schema validation and JSON-RPC 2.0 notifications
+- Fourteen MCP tools with JSON Schema validation and JSON-RPC 2.0 notifications
 - No API key in URLs, logs, stored snapshots, or synthesized documents
 
 ## Install and verify
@@ -20,8 +72,8 @@ server. The CLI and MCP server share the same assets and snapshots.
     npm test
 
 `npm test` runs the complete offline suite: file/store and SQLite tests,
-engine and synthesis tests, and an end-to-end MCP stdio session. No network is
-required by the test suite.
+engine and synthesis tests, feature tests, and an end-to-end MCP stdio
+session. No network is required by the test suite.
 
 ## CLI quick start
 
@@ -38,7 +90,7 @@ reports which paths were created.
 
 ### Add data manually
 
-    coingecko-mcp add asset ethereum --symbol eth --name Ethereum
+    coingecko-mcp add asset ethereum --symbol eth --name Ethereum --amount 2.5
     coingecko-mcp add snapshot ethereum --price 3500.75 --currency usd \
       --market-cap 420000000000 --volume 15000000000 --change-24h -1.2 \
       --last-updated-at 2026-10-27T00:00:00Z --source manual
@@ -46,7 +98,8 @@ reports which paths were created.
 Snapshot writes also track the asset. Existing symbol/name metadata is
 preserved unless explicitly replaced. Duplicate `(coin_id, currency,
 last_updated_at)` values remain append-only in JSONL but are upserted in
-SQLite.
+SQLite. Each `add snapshot` call returns exactly the snapshot that was
+inserted, including backfilled timestamps.
 
 ### Get and refresh prices
 
@@ -58,23 +111,52 @@ SQLite.
 
 `get-price` uses a 30-second TTL by default. `--cache-ttl N` changes it and
 `--force-refresh` bypasses it. Cached data can also be persisted with
-`--persist`; it does not require a second network request. `refresh` always
-fetches fresh data and writes snapshots.
+`--persist`; it does not require a second network request. Cached results
+carry no snapshot row ids (`id: null`) because they describe a previous
+execution; fresh results carry the SQLite row id. `refresh` always fetches
+fresh data and writes snapshots.
+
+### Portfolio, charts, alerts, and bulk tracking
+
+    coingecko-mcp add asset bitcoin --amount 0.5
+    coingecko-mcp portfolio --currency usd
+    coingecko-mcp market-chart bitcoin --days 7
+    coingecko-mcp markets --per-page 10
+    coingecko-mcp alert --above 70000 --below 60000
+
+`portfolio` multiplies each stored `amount` by its latest stored price and
+reports per-position value plus portfolio totals. `market-chart` fetches
+price and volume time series. `markets` tracks top market-cap coins and
+optionally persists their current prices. `alert` evaluates stored latest
+prices against `--above`/`--below` thresholds and reports matches; it is
+fully offline and never polls.
+
+### Import and export history
+
+    coingecko-mcp export snapshots --format csv --out history.csv
+    coingecko-mcp export snapshots --format jsonl
+    coingecko-mcp import snapshots history.csv --format csv
+
+Exports write the full stored history as JSONL or CSV. Imports validate each
+row and report `{ imported, skipped, errors }`; invalid rows are skipped with
+line numbers rather than failing the whole batch.
 
 ### List and synthesize
 
     coingecko-mcp list assets --query bit
     coingecko-mcp list snapshots --coin bitcoin --currency usd --limit 100
+    coingecko-mcp list snapshots --since 2026-10-01 --until 2026-10-27 --order oldest
     coingecko-mcp synthesize portfolio
     coingecko-mcp synthesize bitcoin --words 600 --stdout
     coingecko-mcp stats --json
 
-Omitting `--limit` returns all matching snapshots. Synthesis is deterministic,
-contains latest prices, absolute 24-hour movers, coverage and data-quality
-notes, and never invents prices. Its output is hard-capped at the requested
-word count. The default is 900 words; cached briefs are invalidated by data
-writes. Without `--stdout`, the brief is written under
-`.coingecko/synthesis/`.
+Omitting `--limit` returns all matching snapshots. `--order` selects
+`recent` (default) or `oldest`; `--since`/`--until` bound the time range.
+Synthesis is deterministic, contains latest prices, absolute 24-hour movers,
+coverage and data-quality notes, and never invents prices. Its output is
+hard-capped at the requested word count. The default is 900 words; cached
+briefs are invalidated by data writes. Without `--stdout`, the brief is
+written under `.coingecko/synthesis/`.
 
 ## File layout
 
@@ -86,8 +168,10 @@ writes. Without `--stdout`, the brief is written under
         └── market.db        # derived, rebuildable SQLite index and caches
 
 The JSON/JSONL files are authoritative. SQLite is rebuilt from them on startup
-and after writes. Corrupt JSON or JSONL is reported with its path and is never
-silently overwritten. JSONL corruption includes the exact line number.
+and after writes, and is updated incrementally on every snapshot write so
+history never has to be re-read. Corrupt JSON or JSONL is reported with its
+path and is never silently overwritten. JSONL corruption includes the exact
+line number.
 
 ## MCP server
 
@@ -95,26 +179,48 @@ silently overwritten. JSONL corruption includes the exact line number.
 
 The server speaks newline-delimited JSON-RPC 2.0 over stdio, supports MCP
 2025-06-18 plus older negotiated versions, and reserves stdout for protocol
-messages. Notifications receive no response. The 2025-06-18 version rejects
-batch requests; older negotiated versions receive JSON-RPC batch arrays.
+messages. Notifications receive no response. Message handling is serialized
+so store writes stay in arrival order. The 2025-06-18 version rejects batch
+requests; older negotiated versions receive JSON-RPC batch arrays.
 
 ### Tools
 
 | Tool | Purpose |
 |---|---|
 | `coingecko_ping` | Check CoinGecko API reachability |
-| `coingecko_add_asset` | Add or update a tracked asset |
+| `coingecko_add_asset` | Add or update a tracked asset (with optional amount) |
 | `coingecko_add_snapshot` | Validate and persist a market snapshot |
 | `coingecko_get_price` | Get current prices with TTL caching and optional persistence |
 | `coingecko_refresh` | Fetch and persist prices for one or all tracked assets |
 | `coingecko_list_assets` | List tracked assets with optional text and limit filters |
 | `coingecko_list_snapshots` | Query history by coin, currency, time, order, and limit |
 | `coingecko_synthesize` | Generate a bounded market brief from stored data |
+| `coingecko_portfolio` | Value tracked holdings against latest prices |
+| `coingecko_market_chart` | Fetch price and volume time series for one coin |
+| `coingecko_markets` | Track top market-cap coins and persist prices |
+| `coingecko_alert` | Evaluate stored prices against above/below thresholds |
+| `coingecko_export_snapshots` | Export history as JSONL or CSV text |
+| `coingecko_import_snapshots` | Import snapshots from JSONL or CSV text |
 
 All tools have closed JSON Schemas. Unknown properties, invalid enums,
 out-of-range numbers, empty required arrays, and malformed initialize requests
 are rejected with `-32602`. Domain failures such as an unknown asset or an API
 error are returned as tool results with `isError: true`.
+
+## Error codes
+
+| Code | Meaning |
+|---|---|
+| `EINVALID` | Caller-supplied input failed validation |
+| `EAPI` | CoinGecko API transport or response failure |
+| `ETIMEOUT` | Request exceeded the configured timeout |
+| `ENOTFOUND` | A tracked asset or resource does not exist |
+| `ENOTINIT` | The local store has not been initialized yet |
+| `ECORRUPT` | A local data file failed to parse or validate |
+| `ENODATA` | A request succeeded but returned no usable rows |
+| `EFIXTURE` | The offline fixture is missing a required response |
+| `EFETCH` | No fetch implementation is available |
+| `EIO` | Local file read/write failure |
 
 ## Configuration
 
@@ -139,21 +245,30 @@ The fixture format is:
           "usd_24h_change": 2.45,
           "last_updated_at": 1793088000
         }
-      }
+      },
+      "marketChart": {
+        "prices": [[1793088000000, 67000.25]],
+        "total_volumes": [[1793088000000, 28000000000]]
+      },
+      "markets": [
+        { "id": "bitcoin", "symbol": "btc", "name": "Bitcoin", "current_price": 67000.25 }
+      ]
     }
 
 The included `test/fixture.json` covers three assets and USD/EUR prices. Live
-API calls use a timeout, bounded retries for 429/5xx/network failures, and no
-retry for permanent HTTP errors.
+API calls use a timeout, bounded retries for 429/5xx/network failures and
+invalid JSON responses, `Retry-After` header respect (seconds or HTTP-date),
+and no retry for permanent HTTP errors.
 
 ## Programmatic API
 
     const { CoinGeckoEngine } = require('coingecko-mcp/lib/engine');
     const engine = new CoinGeckoEngine({ rootDir: process.cwd() });
     engine.init();
-    engine.addAsset({ coin_id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' });
+    engine.addAsset({ coin_id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', amount: 0.5 });
     await engine.refresh({ coinId: 'bitcoin' });
     const latest = engine.latestSnapshot('bitcoin', 'usd');
+    const holdings = engine.portfolio({ currency: 'usd' });
     const brief = engine.synthesize({ feature: 'portfolio', write: false });
     engine.close();
 

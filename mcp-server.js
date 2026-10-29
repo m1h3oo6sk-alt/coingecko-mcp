@@ -29,8 +29,10 @@ function startMcpServer(options = {}) {
     jsonrpc: '2.0', id: id === undefined ? null : id,
     error: { code: -32603, message: `Internal error: ${err && err.message ? err.message : String(err)}` },
   });
+  // Serialize message handling so store writes stay in arrival order.
+  let queue = Promise.resolve();
   const dispatch = (message) => {
-    Promise.resolve()
+    queue = queue.then(() => Promise.resolve()
       .then(() => handler.handleMessage(message))
       .then(
         (response) => {
@@ -41,7 +43,8 @@ function startMcpServer(options = {}) {
           const id = message && typeof message === 'object' && !Array.isArray(message) && 'id' in message ? message.id : null;
           write(internalError(err, id));
         },
-      );
+      ));
+    return queue;
   };
   const rl = readline.createInterface({ input: stdin, terminal: false, crlfDelay: Infinity });
   rl.on('line', (line) => {
@@ -62,10 +65,10 @@ function startMcpServer(options = {}) {
         write({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request: empty batch' } });
         return;
       }
-      Promise.all(parsed.map((element) => Promise.resolve()
+      queue = queue.then(() => Promise.all(parsed.map((element) => Promise.resolve()
         .then(() => handler.handleMessage(element))
         .then((response) => response || null)
-        .catch((err) => internalError(err, element && typeof element === 'object' && 'id' in element ? element.id : null))))
+        .catch((err) => internalError(err, element && typeof element === 'object' && 'id' in element ? element.id : null)))))
         .then((responses) => {
           const nonEmpty = responses.filter(Boolean);
           if (nonEmpty.length) write(nonEmpty);

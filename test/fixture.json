@@ -28,5 +28,39 @@
       "usd_24h_change": 5.8,
       "last_updated_at": 1793088000
     }
-  }
+  },
+  "marketChart": {
+    "prices": [
+      [1793084400000, 66500.25],
+      [1793086200000, 66800.5],
+      [1793088000000, 67000.25]
+    ],
+    "total_volumes": [
+      [1793084400000, 27500000000],
+      [1793086200000, 27800000000],
+      [1793088000000, 28000000000]
+    ]
+  },
+  "markets": [
+    {
+      "id": "bitcoin",
+      "symbol": "btc",
+      "name": "Bitcoin",
+      "current_price": 67000.25,
+      "market_cap": 1320000000000,
+      "total_volume": 28000000000,
+      "price_change_percentage_24h": 2.45,
+      "last_updated": 1793088000000
+    },
+    {
+      "id": "ethereum",
+      "symbol": "eth",
+      "name": "Ethereum",
+      "current_price": 3500.75,
+      "market_cap": 420000000000,
+      "total_volume": 15000000000,
+      "price_change_percentage_24h": -1.2,
+      "last_updated": 1793088000000
+    }
+  ]
 }

@@ -86,7 +86,7 @@ async function main() {
   s.send({ jsonrpc: '2.0', id: listId, method: 'tools/list' });
   const toolList = await s.waitFor((message) => message.id === listId);
   const tools = toolList.result.tools;
-  expect('exactly eight tools are exposed', tools.length === 8, tools.map((tool) => tool.name).join(','));
+  expect('exactly fourteen tools are exposed', tools.length === 14, tools.map((tool) => tool.name).join(','));
   expect('tool schemas include required input objects', tools.every((tool) => tool.description && tool.inputSchema && tool.inputSchema.type === 'object'));
 
   let response = await call('coingecko_ping');
